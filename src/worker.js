@@ -294,7 +294,7 @@ function renderRaw(nodes) {
   return b64EncodeUtf8(lines.join('\n'));
 }
 
-function renderClash(nodes) {
+function renderClash(nodes, isList = false) {
   const proxies = nodes
     .map((node) => {
       if (node.type === 'vmess') {
@@ -550,6 +550,13 @@ function renderClash(nodes) {
     })
     .filter(Boolean);
 
+  if (isList) {
+    return [
+      `proxies:`,
+      ...(proxies.length ? proxies : []),
+    ].join('\n') + '\n';
+  }
+
   const proxyNames = nodes.map(
     (node) => `      - "${escapeYaml(node.name)}"`
   );
@@ -787,9 +794,10 @@ async function handleSub(url, env) {
   const record = JSON.parse(raw);
   const nodes = record.nodes || [];
   const target = (url.searchParams.get('target') || 'raw').toLowerCase();
+  const isList = url.searchParams.get('list') === 'true' || url.searchParams.get('provider') === 'true';
 
   if (target === 'clash') {
-    return text(renderClash(nodes), 200, 'text/yaml; charset=utf-8');
+    return text(renderClash(nodes, isList), 200, 'text/yaml; charset=utf-8');
   }
   if (target === 'surge') {
     return text(

@@ -126,4 +126,13 @@ const subDecoded = Buffer.from(subBase64, 'base64').toString('utf8');
 assert.ok(subDecoded.includes('1.1.1.1'));
 assert.ok(!subDecoded.includes('2606:4700:3001:7e68:af84:b71f:1571'));
 
+// Test Clash list / provider format
+const clashListUrl = new URL(`${clashUrl.origin}/sub/${shortId}?target=clash&list=true&token=test-token`);
+const clashListRes = await worker.fetch(new Request(clashListUrl), env);
+assert.equal(clashListRes.status, 200);
+const clashListText = await clashListRes.text();
+assert.ok(clashListText.startsWith('proxies:'));
+assert.ok(!clashListText.includes('proxy-groups:'));
+assert.ok(!clashListText.includes('rules:'));
+
 console.log('worker test passed');
