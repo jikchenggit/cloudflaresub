@@ -99,6 +99,7 @@ function parseVmess(link) {
     sni: obj.sni || obj.host || '',
     alpn: obj.alpn || '',
     fp: obj.fp || '',
+    allowInsecure: obj.allowInsecure === true || obj.allowInsecure === 1 || obj.allowInsecure === 'true',
   };
 }
 
@@ -126,6 +127,7 @@ function parseUrlLike(link, type) {
     fp: u.searchParams.get('fp') || '',
     alpn: u.searchParams.get('alpn') || '',
     flow: u.searchParams.get('flow') || '',
+    allowInsecure: u.searchParams.get('allowInsecure') === 'true' || u.searchParams.get('insecure') === 'true' || u.searchParams.get('allowInsecure') === '1' || u.searchParams.get('insecure') === '1',
     params,
   };
 }
@@ -314,6 +316,19 @@ function renderClash(nodes) {
           lines.push(`    servername: "${escapeYaml(node.sni)}"`);
         }
 
+        if (node.tls) {
+          if (node.alpn) {
+            const alpnArr = typeof node.alpn === 'string' ? node.alpn.split(',').map(s => s.trim()).filter(Boolean) : node.alpn;
+            if (Array.isArray(alpnArr) && alpnArr.length) {
+              lines.push(`    alpn: [${alpnArr.map(s => `"${escapeYaml(s)}"`).join(', ')}]`);
+            }
+          }
+          if (node.fp) {
+            lines.push(`    client-fingerprint: "${escapeYaml(node.fp)}"`);
+          }
+          lines.push(`    skip-cert-verify: ${node.allowInsecure ? 'true' : 'false'}`);
+        }
+
         if (network === 'ws') {
           lines.push(
             `    ws-opts:`,
@@ -381,6 +396,19 @@ function renderClash(nodes) {
 
         if (node.sni) {
           lines.push(`    servername: "${escapeYaml(node.sni)}"`);
+        }
+
+        if (node.tls) {
+          if (node.alpn) {
+            const alpnArr = typeof node.alpn === 'string' ? node.alpn.split(',').map(s => s.trim()).filter(Boolean) : node.alpn;
+            if (Array.isArray(alpnArr) && alpnArr.length) {
+              lines.push(`    alpn: [${alpnArr.map(s => `"${escapeYaml(s)}"`).join(', ')}]`);
+            }
+          }
+          if (node.fp) {
+            lines.push(`    client-fingerprint: "${escapeYaml(node.fp)}"`);
+          }
+          lines.push(`    skip-cert-verify: ${node.allowInsecure ? 'true' : 'false'}`);
         }
 
         if (network === 'ws') {
@@ -452,6 +480,16 @@ function renderClash(nodes) {
 
         if (node.tls !== false) {
           lines.push(`    tls: true`);
+          if (node.alpn) {
+            const alpnArr = typeof node.alpn === 'string' ? node.alpn.split(',').map(s => s.trim()).filter(Boolean) : node.alpn;
+            if (Array.isArray(alpnArr) && alpnArr.length) {
+              lines.push(`    alpn: [${alpnArr.map(s => `"${escapeYaml(s)}"`).join(', ')}]`);
+            }
+          }
+          if (node.fp) {
+            lines.push(`    client-fingerprint: "${escapeYaml(node.fp)}"`);
+          }
+          lines.push(`    skip-cert-verify: ${node.allowInsecure ? 'true' : 'false'}`);
         }
 
         lines.push(`    network: ${network}`);

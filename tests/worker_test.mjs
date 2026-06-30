@@ -27,7 +27,7 @@ const generateReq = new Request('http://localhost/api/generate', {
   method: 'POST',
   headers: { 'content-type': 'application/json' },
   body: JSON.stringify({
-    nodeLinks: 'vless://f2c661f3-3c54-4e08-aa43-3bff1f4beb4c@104.20.43.246:443?encryption=mlkem768x25519plus.random.0rtt&security=tls&sni=avghost.959515.xyz&type=xhttp&host=avghost.959515.xyz&path=%2Favghost&mode=auto&extra=%7B%22mode%22%3A%22auto%22%2C%22xPaddingBytes%22%3A%22100-1000%22%7D#VLESS-XHTTP-TEST',
+    nodeLinks: 'vless://f2c661f3-3c54-4e08-aa43-3bff1f4beb4c@104.20.43.246:443?encryption=mlkem768x25519plus.random.0rtt&security=tls&sni=avghost.959515.xyz&type=xhttp&host=avghost.959515.xyz&path=%2Favghost&mode=auto&fp=chrome&alpn=h2%2Chttp%2F1.1%2Ch3&extra=%7B%22mode%22%3A%22auto%22%2C%22xPaddingBytes%22%3A%22100-1000%22%7D#VLESS-XHTTP-TEST',
     preferredIps: '1.1.1.1#CF-IP',
     namePrefix: 'CF',
     keepOriginalHost: true
@@ -56,6 +56,9 @@ assert.ok(clashText.includes('host: "avghost.959515.xyz"'));
 assert.ok(clashText.includes('mode: "auto"'));
 assert.ok(clashText.includes('extra:'));
 assert.ok(clashText.includes('xPaddingBytes: "100-1000"'));
+assert.ok(clashText.includes('client-fingerprint: "chrome"'));
+assert.ok(clashText.includes('alpn: ["h2", "http/1.1", "h3"]'));
+assert.ok(clashText.includes('skip-cert-verify: false'));
 
 // Test GET /sub/:id?token=test-token (raw/base64)
 const rawUrl = new URL(genData.urls.raw);
