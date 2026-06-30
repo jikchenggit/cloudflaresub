@@ -116,24 +116,26 @@ function parseRawLinks(input) {
 
   const result = [];
   for (const line of lines) {
-    if (line.startsWith('vmess://')) {
-      result.push(parseVmess(line));
-      continue;
-    }
-    if (line.startsWith('vless://')) {
-      result.push(parseUrlLike(line, 'vless'));
-      continue;
-    }
-    if (line.startsWith('trojan://')) {
-      result.push(parseUrlLike(line, 'trojan'));
-      continue;
-    }
     try {
+      if (line.startsWith('vmess://')) {
+        result.push(parseVmess(line));
+        continue;
+      }
+      if (line.startsWith('vless://')) {
+        result.push(parseUrlLike(line, 'vless'));
+        continue;
+      }
+      if (line.startsWith('trojan://')) {
+        result.push(parseUrlLike(line, 'trojan'));
+        continue;
+      }
       const decoded = b64DecodeUtf8(line);
       if (/^(vmess|vless|trojan):\/\//m.test(decoded)) {
         result.push(...parseRawLinks(decoded));
       }
-    } catch {}
+    } catch (e) {
+      // Skip invalid node links without crashing the entire request
+    }
   }
   return result;
 }
@@ -597,6 +599,15 @@ async function buildDedupHash(body) {
 }
 
 async function handleGenerate(request, env, url) {
+  if (!env.SUB_STORE) {
+    return json(
+      {
+        ok: false,
+        error: '系统配置错误：未检测到名为 SUB_STORE 的 KV 空间绑定。请前往 Cloudflare 网页后台，在此 Pages 项目的「设置 -> Functions -> KV 命名空间绑定」中添加一个名为 SUB_STORE 的绑定，并重新部署。',
+      },
+      500,
+    );
+  }
   let body;
   try {
     body = await request.json();
@@ -690,6 +701,9 @@ function validateAccessToken(url, env) {
 }
 
 async function handleSub(url, env) {
+  if (!env.SUB_STORE) {
+    return text('System Configuration Error: KV namespace SUB_STORE is not bound.', 500);
+  }
   const tokenCheck = validateAccessToken(url, env);
   if (!tokenCheck.ok) return tokenCheck.response;
 

@@ -68,6 +68,12 @@ const rawText = Buffer.from(rawBase64, 'base64').toString('utf8');
 assert.ok(rawText.includes('encryption=mlkem768x25519plus.random.0rtt'));
 assert.ok(rawText.includes('type=xhttp'));
 assert.ok(rawText.includes('mode=auto'));
-assert.ok(rawText.includes('extra='));
+// Test KV missing check
+const missingKvEnv = { ...env, SUB_STORE: undefined };
+const missingRes = await worker.fetch(generateReq, missingKvEnv);
+assert.equal(missingRes.status, 500);
+const missingData = await missingRes.json();
+assert.equal(missingData.ok, false);
+assert.ok(missingData.error.includes('未检测到名为 SUB_STORE 的 KV'));
 
 console.log('worker test passed');
