@@ -70,7 +70,6 @@ assert.ok(renderedXhttpClash.includes('xhttp-opts:'));
 assert.ok(renderedXhttpClash.includes('path: "/avghost"'));
 assert.ok(renderedXhttpClash.includes('host: "avghost.959515.xyz"'));
 assert.ok(renderedXhttpClash.includes('mode: "auto"'));
-assert.ok(renderedXhttpClash.includes('extra:'));
-assert.ok(renderedXhttpClash.includes('xPaddingBytes: "100-1000"'));
+assert.ok(renderedXhttpClash.includes('x-padding-bytes: "100-1000"'));
 
 console.log('smoke test passed');

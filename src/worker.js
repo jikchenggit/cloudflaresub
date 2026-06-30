@@ -349,25 +349,26 @@ function renderClash(nodes, isList = false) {
             `        Host: ["${escapeYaml(node.host || node.sni || '')}"]`
           );
         } else if (network === 'xhttp') {
-          lines.push(
-            `    xhttp-opts:`,
-            `      path: "${escapeYaml(node.path || '')}"`,
-            `      host: "${escapeYaml(node.host || node.sni || '')}"`,
-            `      mode: "${escapeYaml(node.params?.mode || 'auto')}"`
-          );
+          let xhttpMode = node.params?.mode || 'auto';
+          let xPadding = '';
           if (node.params?.extra) {
             try {
               const extraVal = typeof node.params.extra === 'string'
                 ? JSON.parse(decodeURIComponent(node.params.extra))
                 : node.params.extra;
-              lines.push(
-                `      extra:`,
-                `        mode: "${escapeYaml(extraVal.mode || 'auto')}"`,
-                `        xPaddingBytes: "${escapeYaml(extraVal.xPaddingBytes || '100-1000')}"`
-              );
-            } catch (e) {
-              lines.push(`      extra: "${escapeYaml(String(node.params.extra))}"`);
-            }
+              if (extraVal.mode) xhttpMode = extraVal.mode;
+              if (extraVal.xPaddingBytes) xPadding = extraVal.xPaddingBytes;
+              if (extraVal['x-padding-bytes']) xPadding = extraVal['x-padding-bytes'];
+            } catch (e) {}
+          }
+          lines.push(
+            `    xhttp-opts:`,
+            `      path: "${escapeYaml(node.path || '')}"`,
+            `      host: "${escapeYaml(node.host || node.sni || '')}"`,
+            `      mode: "${escapeYaml(xhttpMode)}"`
+          );
+          if (xPadding) {
+            lines.push(`      x-padding-bytes: "${escapeYaml(xPadding)}"`);
           }
         } else if (network === 'httpupgrade') {
           lines.push(
@@ -431,25 +432,26 @@ function renderClash(nodes, isList = false) {
             `        Host: ["${escapeYaml(node.host || node.sni || '')}"]`
           );
         } else if (network === 'xhttp') {
-          lines.push(
-            `    xhttp-opts:`,
-            `      path: "${escapeYaml(node.path || '')}"`,
-            `      host: "${escapeYaml(node.host || node.sni || '')}"`,
-            `      mode: "${escapeYaml(node.params?.mode || 'auto')}"`
-          );
+          let xhttpMode = node.params?.mode || 'auto';
+          let xPadding = '';
           if (node.params?.extra) {
             try {
               const extraVal = typeof node.params.extra === 'string'
                 ? JSON.parse(decodeURIComponent(node.params.extra))
                 : node.params.extra;
-              lines.push(
-                `      extra:`,
-                `        mode: "${escapeYaml(extraVal.mode || 'auto')}"`,
-                `        xPaddingBytes: "${escapeYaml(extraVal.xPaddingBytes || '100-1000')}"`
-              );
-            } catch (e) {
-              lines.push(`      extra: "${escapeYaml(String(node.params.extra))}"`);
-            }
+              if (extraVal.mode) xhttpMode = extraVal.mode;
+              if (extraVal.xPaddingBytes) xPadding = extraVal.xPaddingBytes;
+              if (extraVal['x-padding-bytes']) xPadding = extraVal['x-padding-bytes'];
+            } catch (e) {}
+          }
+          lines.push(
+            `    xhttp-opts:`,
+            `      path: "${escapeYaml(node.path || '')}"`,
+            `      host: "${escapeYaml(node.host || node.sni || '')}"`,
+            `      mode: "${escapeYaml(xhttpMode)}"`
+          );
+          if (xPadding) {
+            lines.push(`      x-padding-bytes: "${escapeYaml(xPadding)}"`);
           }
         } else if (network === 'httpupgrade') {
           lines.push(
@@ -514,25 +516,26 @@ function renderClash(nodes, isList = false) {
             `        Host: ["${escapeYaml(node.host || node.sni || '')}"]`
           );
         } else if (network === 'xhttp') {
-          lines.push(
-            `    xhttp-opts:`,
-            `      path: "${escapeYaml(node.path || '')}"`,
-            `      host: "${escapeYaml(node.host || node.sni || '')}"`,
-            `      mode: "${escapeYaml(node.params?.mode || 'auto')}"`
-          );
+          let xhttpMode = node.params?.mode || 'auto';
+          let xPadding = '';
           if (node.params?.extra) {
             try {
               const extraVal = typeof node.params.extra === 'string'
                 ? JSON.parse(decodeURIComponent(node.params.extra))
                 : node.params.extra;
-              lines.push(
-                `      extra:`,
-                `        mode: "${escapeYaml(extraVal.mode || 'auto')}"`,
-                `        xPaddingBytes: "${escapeYaml(extraVal.xPaddingBytes || '100-1000')}"`
-              );
-            } catch (e) {
-              lines.push(`      extra: "${escapeYaml(String(node.params.extra))}"`);
-            }
+              if (extraVal.mode) xhttpMode = extraVal.mode;
+              if (extraVal.xPaddingBytes) xPadding = extraVal.xPaddingBytes;
+              if (extraVal['x-padding-bytes']) xPadding = extraVal['x-padding-bytes'];
+            } catch (e) {}
+          }
+          lines.push(
+            `    xhttp-opts:`,
+            `      path: "${escapeYaml(node.path || '')}"`,
+            `      host: "${escapeYaml(node.host || node.sni || '')}"`,
+            `      mode: "${escapeYaml(xhttpMode)}"`
+          );
+          if (xPadding) {
+            lines.push(`      x-padding-bytes: "${escapeYaml(xPadding)}"`);
           }
         } else if (network === 'httpupgrade') {
           lines.push(

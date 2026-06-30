@@ -646,21 +646,24 @@ function renderClashProxy(node) {
   }
 
   if (network === 'xhttp') {
-    lines.push('    xhttp-opts:');
-    lines.push(`      path: ${yamlQuote(node.path || '')}`);
-    lines.push(`      host: ${yamlQuote(node.hostHeader || '')}`);
-    lines.push(`      mode: ${yamlQuote(node.params?.mode || 'auto')}`);
+    let xhttpMode = node.params?.mode || 'auto';
+    let xPadding = '';
     if (node.params?.extra) {
       try {
         const extraVal = typeof node.params.extra === 'string' 
           ? JSON.parse(decodeURIComponent(node.params.extra)) 
           : node.params.extra;
-        lines.push('      extra:');
-        lines.push(`        mode: ${yamlQuote(extraVal.mode || 'auto')}`);
-        lines.push(`        xPaddingBytes: ${yamlQuote(extraVal.xPaddingBytes || '100-1000')}`);
-      } catch (e) {
-        lines.push(`      extra: ${yamlQuote(String(node.params.extra))}`);
-      }
+        if (extraVal.mode) xhttpMode = extraVal.mode;
+        if (extraVal.xPaddingBytes) xPadding = extraVal.xPaddingBytes;
+        if (extraVal['x-padding-bytes']) xPadding = extraVal['x-padding-bytes'];
+      } catch (e) {}
+    }
+    lines.push('    xhttp-opts:');
+    lines.push(`      path: ${yamlQuote(node.path || '')}`);
+    lines.push(`      host: ${yamlQuote(node.hostHeader || '')}`);
+    lines.push(`      mode: ${yamlQuote(xhttpMode)}`);
+    if (xPadding) {
+      lines.push(`      x-padding-bytes: ${yamlQuote(xPadding)}`);
     }
   }
 
