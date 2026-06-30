@@ -51,10 +51,32 @@ function parsePreferredEndpoints(input) {
       const [raw, remark = ''] = line.split('#');
       const value = raw.trim();
       const hashRemark = remark.trim();
-      const match = value.match(/^(.*?)(?::(\d+))?$/);
+      
+      let server = value;
+      let port = undefined;
+      
+      if (value.startsWith('[')) {
+        const match = value.match(/^\[([^\]]+)](?::(\d+))?$/);
+        if (match) {
+          server = match[1];
+          if (match[2]) {
+            port = Number(match[2]);
+          }
+        }
+      } else {
+        const colonCount = (value.match(/:/g) || []).length;
+        if (colonCount === 1) {
+          const parts = value.split(':');
+          if (/^\d+$/.test(parts[1])) {
+            server = parts[0];
+            port = Number(parts[1]);
+          }
+        }
+      }
+      
       return {
-        server: match?.[1] || value,
-        port: match?.[2] ? Number(match[2]) : undefined,
+        server,
+        port,
         remark: hashRemark,
       };
     });
@@ -203,8 +225,15 @@ function encodeVmess(node) {
   return 'vmess://' + b64EncodeUtf8(JSON.stringify(obj));
 }
 
+function formatHostForUrl(host) {
+  if (String(host).includes(':') && !String(host).startsWith('[')) {
+    return `[${host}]`;
+  }
+  return host;
+}
+
 function encodeVless(node) {
-  const url = new URL(`vless://${encodeURIComponent(node.uuid)}@${node.server}:${node.port}`);
+  const url = new URL(`vless://${encodeURIComponent(node.uuid)}@${formatHostForUrl(node.server)}:${node.port}`);
   if (node.params) {
     for (const [k, v] of Object.entries(node.params)) {
       url.searchParams.set(k, v);
@@ -235,7 +264,7 @@ function encodeVless(node) {
 }
 
 function encodeTrojan(node) {
-  const url = new URL(`trojan://${encodeURIComponent(node.password)}@${node.server}:${node.port}`);
+  const url = new URL(`trojan://${encodeURIComponent(node.password)}@${formatHostForUrl(node.server)}:${node.port}`);
   if (node.network) url.searchParams.set('type', node.network);
   if (node.tls) url.searchParams.set('security', 'tls');
   if (node.host) url.searchParams.set('host', node.host);

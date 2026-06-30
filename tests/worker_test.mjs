@@ -76,4 +76,26 @@ const missingData = await missingRes.json();
 assert.equal(missingData.ok, false);
 assert.ok(missingData.error.includes('未检测到名为 SUB_STORE 的 KV'));
 
+// Test IPv6 preferred IP parsing in handleGenerate
+const ipv6GenerateReq = new Request('http://localhost/api/generate', {
+  method: 'POST',
+  headers: { 'content-type': 'application/json' },
+  body: JSON.stringify({
+    nodeLinks: 'vless://f2c661f3-3c54-4e08-aa43-3bff1f4beb4c@104.20.43.246:443?type=ws#VLESS-TEST',
+    preferredIps: '2606:4700:3001:7e68:af84:b71f:1571#IPv6-Bare\n[2a06:98c1:3100:a699:a7c2:b6ba:db02]:8405#IPv6-Bracketed',
+    namePrefix: 'CF',
+    keepOriginalHost: true
+  })
+});
+const ipv6GenRes = await worker.fetch(ipv6GenerateReq, env);
+assert.equal(ipv6GenRes.status, 200);
+const ipv6GenData = await ipv6GenRes.json();
+assert.equal(ipv6GenData.ok, true);
+
+assert.equal(ipv6GenData.preview.length, 2);
+assert.equal(ipv6GenData.preview[0].server, '2606:4700:3001:7e68:af84:b71f:1571');
+assert.equal(ipv6GenData.preview[0].port, 443);
+assert.equal(ipv6GenData.preview[1].server, '2a06:98c1:3100:a699:a7c2:b6ba:db02');
+assert.equal(ipv6GenData.preview[1].port, 8405);
+
 console.log('worker test passed');
