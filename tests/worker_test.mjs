@@ -98,4 +98,29 @@ assert.equal(ipv6GenData.preview[0].port, 443);
 assert.equal(ipv6GenData.preview[1].server, '2a06:98c1:3100:a699:a7c2:b6ba:db02');
 assert.equal(ipv6GenData.preview[1].port, 8405);
 
+// Test that invalid IPv6 in preferred IP doesn't crash subscription generation
+const invalidIpv6Req = new Request('http://localhost/api/generate', {
+  method: 'POST',
+  headers: { 'content-type': 'application/json' },
+  body: JSON.stringify({
+    nodeLinks: 'vless://f2c661f3-3c54-4e08-aa43-3bff1f4beb4c@104.20.43.246:443?type=ws#VLESS-TEST',
+    preferredIps: '2606:4700:3001:7e68:af84:b71f:1571#IPv6-Invalid-7-Blocks\n1.1.1.1#IPv4-Valid',
+    namePrefix: 'CF',
+    keepOriginalHost: true
+  })
+});
+const invalidIpv6GenRes = await worker.fetch(invalidIpv6Req, env);
+assert.equal(invalidIpv6GenRes.status, 200);
+const invalidIpv6GenData = await invalidIpv6GenRes.json();
+assert.equal(invalidIpv6GenData.ok, true);
+
+const subId = invalidIpv6GenData.shortId;
+const subUrl = new URL(`${clashUrl.origin}/sub/${subId}?token=test-token`);
+const subRes = await worker.fetch(new Request(subUrl), env);
+assert.equal(subRes.status, 200);
+const subBase64 = await subRes.text();
+const subDecoded = Buffer.from(subBase64, 'base64').toString('utf8');
+assert.ok(subDecoded.includes('1.1.1.1'));
+assert.ok(!subDecoded.includes('2606:4700:3001:7e68:af84:b71f:1571'));
+
 console.log('worker test passed');

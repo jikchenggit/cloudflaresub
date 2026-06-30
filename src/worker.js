@@ -279,9 +279,13 @@ function encodeTrojan(node) {
 function renderRaw(nodes) {
   const lines = nodes
     .map((node) => {
-      if (node.type === 'vmess') return encodeVmess(node);
-      if (node.type === 'vless') return encodeVless(node);
-      if (node.type === 'trojan') return encodeTrojan(node);
+      try {
+        if (node.type === 'vmess') return encodeVmess(node);
+        if (node.type === 'vless') return encodeVless(node);
+        if (node.type === 'trojan') return encodeTrojan(node);
+      } catch (e) {
+        // Skip nodes with malformed hosts (e.g. invalid IPv6) rather than crashing the subscription
+      }
       return '';
     })
     .filter(Boolean);
