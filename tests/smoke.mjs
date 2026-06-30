@@ -42,4 +42,35 @@ const token = await encryptPayload({ nodes: expanded.nodes }, secret);
 const payload = await decryptPayload(token, secret);
 assert.equal(payload.nodes.length, 2);
 
+// Test VLESS xhttp node parsing and rendering
+const vlessXhttp = 'vless://f2c661f3-3c54-4e08-aa43-3bff1f4beb4c@104.20.43.246:443?encryption=mlkem768x25519plus.random.0rtt&security=tls&sni=avghost.959515.xyz&type=xhttp&host=avghost.959515.xyz&path=%2Favghost&mode=auto&extra=%7B%22mode%22%3A%22auto%22%2C%22xPaddingBytes%22%3A%22100-1000%22%7D#VLESS-XHTTP-TEST';
+const parsedXhttp = parseNodeLinks(vlessXhttp);
+assert.equal(parsedXhttp.nodes.length, 1);
+assert.equal(parsedXhttp.nodes[0].type, 'vless');
+assert.equal(parsedXhttp.nodes[0].network, 'xhttp');
+assert.equal(parsedXhttp.nodes[0].params.encryption, 'mlkem768x25519plus.random.0rtt');
+
+const endpointsXhttp = parsePreferredEndpoints('1.1.1.1#CF-IP');
+const expandedXhttp = expandNodes(parsedXhttp.nodes, endpointsXhttp.endpoints, { keepOriginalHost: true });
+assert.equal(expandedXhttp.nodes[0].server, '1.1.1.1');
+assert.equal(expandedXhttp.nodes[0].params.sni, 'avghost.959515.xyz');
+assert.equal(expandedXhttp.nodes[0].params.host, 'avghost.959515.xyz');
+assert.equal(expandedXhttp.nodes[0].params.encryption, 'mlkem768x25519plus.random.0rtt');
+
+const renderedXhttpRaw = renderRawSubscription(expandedXhttp.nodes);
+const decodedXhttpRaw = Buffer.from(renderedXhttpRaw, 'base64').toString('utf8');
+assert.ok(decodedXhttpRaw.includes('encryption=mlkem768x25519plus.random.0rtt'));
+assert.ok(decodedXhttpRaw.includes('type=xhttp'));
+assert.ok(decodedXhttpRaw.includes('mode=auto'));
+assert.ok(decodedXhttpRaw.includes('extra='));
+
+const renderedXhttpClash = renderClashSubscription(expandedXhttp.nodes);
+assert.ok(renderedXhttpClash.includes('network: xhttp'));
+assert.ok(renderedXhttpClash.includes('xhttp-opts:'));
+assert.ok(renderedXhttpClash.includes('path: "/avghost"'));
+assert.ok(renderedXhttpClash.includes('host: "avghost.959515.xyz"'));
+assert.ok(renderedXhttpClash.includes('mode: "auto"'));
+assert.ok(renderedXhttpClash.includes('extra:'));
+assert.ok(renderedXhttpClash.includes('xPaddingBytes: "100-1000"'));
+
 console.log('smoke test passed');

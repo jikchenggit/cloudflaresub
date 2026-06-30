@@ -82,6 +82,12 @@ function parseVmess(link) {
 
 function parseUrlLike(link, type) {
   const u = new URL(link);
+  const params = {};
+  for (const [k, v] of u.searchParams.entries()) {
+    params[k] = v;
+  }
+  const network = u.searchParams.get('type') || 'tcp';
+  const security = (u.searchParams.get('security') || '').toLowerCase();
   return {
     type,
     name: decodeURIComponent(u.hash.replace(/^#/, '')) || type,
@@ -89,14 +95,16 @@ function parseUrlLike(link, type) {
     port: Number(u.port || 443),
     password: type === 'trojan' ? decodeURIComponent(u.username) : undefined,
     uuid: type === 'vless' ? decodeURIComponent(u.username) : undefined,
-    network: u.searchParams.get('type') || 'tcp',
-    tls: (u.searchParams.get('security') || '').toLowerCase() === 'tls',
+    network,
+    tls: security === 'tls' || security === 'reality',
+    security,
     host: u.searchParams.get('host') || u.searchParams.get('sni') || '',
     path: u.searchParams.get('path') || '/',
     sni: u.searchParams.get('sni') || u.searchParams.get('host') || '',
     fp: u.searchParams.get('fp') || '',
     alpn: u.searchParams.get('alpn') || '',
     flow: u.searchParams.get('flow') || '',
+    params,
   };
 }
 
@@ -142,14 +150,31 @@ function buildNodes(baseNodes, preferredEndpoints, options = {}) {
       if (prefix) nameParts.push(prefix);
       if (ep.remark) nameParts.push(ep.remark);
       else nameParts.push(String(counter));
-      output.push({
+      
+      const host = options.keepOriginalHost ? (node.host || node.server) : '';
+      const sni = options.keepOriginalHost ? (node.sni || node.server) : '';
+      
+      const clone = {
         ...node,
         name: nameParts.join(' | '),
         server: ep.server,
         port: ep.port || node.port,
-        host: options.keepOriginalHost ? node.host : '',
-        sni: options.keepOriginalHost ? node.sni : '',
-      });
+        host,
+        sni,
+      };
+
+      if (clone.params) {
+        clone.params = { ...node.params };
+        if (options.keepOriginalHost) {
+          if (host) clone.params.host = host;
+          if (sni) clone.params.sni = sni;
+        } else {
+          delete clone.params.host;
+          delete clone.params.sni;
+        }
+      }
+
+      output.push(clone);
     }
   }
   return output;
@@ -178,10 +203,27 @@ function encodeVmess(node) {
 
 function encodeVless(node) {
   const url = new URL(`vless://${encodeURIComponent(node.uuid)}@${node.server}:${node.port}`);
+  if (node.params) {
+    for (const [k, v] of Object.entries(node.params)) {
+      url.searchParams.set(k, v);
+    }
+  }
   url.searchParams.set('type', node.network || 'ws');
-  if (node.tls) url.searchParams.set('security', 'tls');
-  if (node.host) url.searchParams.set('host', node.host);
-  if (node.sni) url.searchParams.set('sni', node.sni);
+  if (node.tls) {
+    url.searchParams.set('security', node.security || 'tls');
+  } else {
+    url.searchParams.delete('security');
+  }
+  if (node.host) {
+    url.searchParams.set('host', node.host);
+  } else {
+    url.searchParams.delete('host');
+  }
+  if (node.sni) {
+    url.searchParams.set('sni', node.sni);
+  } else {
+    url.searchParams.delete('sni');
+  }
   if (node.path) url.searchParams.set('path', node.path);
   if (node.alpn) url.searchParams.set('alpn', node.alpn);
   if (node.fp) url.searchParams.set('fp', node.fp);
@@ -219,6 +261,7 @@ function renderClash(nodes) {
   const proxies = nodes
     .map((node) => {
       if (node.type === 'vmess') {
+        const network = node.network || 'ws';
         const lines = [
           `  - name: "${escapeYaml(node.name)}"`,
           `    type: vmess`,
@@ -229,17 +272,57 @@ function renderClash(nodes) {
           `    cipher: ${node.cipher || 'auto'}`,
           `    udp: true`,
           `    tls: ${node.tls ? 'true' : 'false'}`,
-          `    network: ${node.network || 'ws'}`,
+          `    network: ${network}`,
         ];
 
         if (node.sni) {
           lines.push(`    servername: "${escapeYaml(node.sni)}"`);
         }
 
-        if ((node.network || 'ws') === 'ws') {
+        if (network === 'ws') {
           lines.push(
             `    ws-opts:`,
             `      path: "${escapeYaml(node.path || '/')}"`,
+            `      headers:`,
+            `        Host: "${escapeYaml(node.host || node.sni || '')}"`
+          );
+        } else if (network === 'grpc') {
+          lines.push(
+            `    grpc-opts:`,
+            `      grpc-service-name: "${escapeYaml(node.serviceName || node.params?.serviceName || '')}"`
+          );
+        } else if (network === 'http' || network === 'h2') {
+          lines.push(
+            `    http-opts:`,
+            `      path: ["${escapeYaml(node.path || '/')}"]`,
+            `      headers:`,
+            `        Host: ["${escapeYaml(node.host || node.sni || '')}"]`
+          );
+        } else if (network === 'xhttp') {
+          lines.push(
+            `    xhttp-opts:`,
+            `      path: "${escapeYaml(node.path || '')}"`,
+            `      host: "${escapeYaml(node.host || node.sni || '')}"`,
+            `      mode: "${escapeYaml(node.params?.mode || 'auto')}"`
+          );
+          if (node.params?.extra) {
+            try {
+              const extraVal = typeof node.params.extra === 'string'
+                ? JSON.parse(decodeURIComponent(node.params.extra))
+                : node.params.extra;
+              lines.push(
+                `      extra:`,
+                `        mode: "${escapeYaml(extraVal.mode || 'auto')}"`,
+                `        xPaddingBytes: "${escapeYaml(extraVal.xPaddingBytes || '100-1000')}"`
+              );
+            } catch (e) {
+              lines.push(`      extra: "${escapeYaml(String(node.params.extra))}"`);
+            }
+          }
+        } else if (network === 'httpupgrade') {
+          lines.push(
+            `    httpupgrade-opts:`,
+            `      path: "${escapeYaml(node.path || '')}"`,
             `      headers:`,
             `        Host: "${escapeYaml(node.host || node.sni || '')}"`
           );
@@ -249,6 +332,7 @@ function renderClash(nodes) {
       }
 
       if (node.type === 'vless') {
+        const network = node.network || 'ws';
         const lines = [
           `  - name: "${escapeYaml(node.name)}"`,
           `    type: vless`,
@@ -257,17 +341,57 @@ function renderClash(nodes) {
           `    uuid: ${node.uuid}`,
           `    udp: true`,
           `    tls: ${node.tls ? 'true' : 'false'}`,
-          `    network: ${node.network || 'ws'}`,
+          `    network: ${network}`,
         ];
 
         if (node.sni) {
           lines.push(`    servername: "${escapeYaml(node.sni)}"`);
         }
 
-        if ((node.network || 'ws') === 'ws') {
+        if (network === 'ws') {
           lines.push(
             `    ws-opts:`,
             `      path: "${escapeYaml(node.path || '/')}"`,
+            `      headers:`,
+            `        Host: "${escapeYaml(node.host || node.sni || '')}"`
+          );
+        } else if (network === 'grpc') {
+          lines.push(
+            `    grpc-opts:`,
+            `      grpc-service-name: "${escapeYaml(node.serviceName || node.params?.serviceName || '')}"`
+          );
+        } else if (network === 'http' || network === 'h2') {
+          lines.push(
+            `    http-opts:`,
+            `      path: ["${escapeYaml(node.path || '/')}"]`,
+            `      headers:`,
+            `        Host: ["${escapeYaml(node.host || node.sni || '')}"]`
+          );
+        } else if (network === 'xhttp') {
+          lines.push(
+            `    xhttp-opts:`,
+            `      path: "${escapeYaml(node.path || '')}"`,
+            `      host: "${escapeYaml(node.host || node.sni || '')}"`,
+            `      mode: "${escapeYaml(node.params?.mode || 'auto')}"`
+          );
+          if (node.params?.extra) {
+            try {
+              const extraVal = typeof node.params.extra === 'string'
+                ? JSON.parse(decodeURIComponent(node.params.extra))
+                : node.params.extra;
+              lines.push(
+                `      extra:`,
+                `        mode: "${escapeYaml(extraVal.mode || 'auto')}"`,
+                `        xPaddingBytes: "${escapeYaml(extraVal.xPaddingBytes || '100-1000')}"`
+              );
+            } catch (e) {
+              lines.push(`      extra: "${escapeYaml(String(node.params.extra))}"`);
+            }
+          }
+        } else if (network === 'httpupgrade') {
+          lines.push(
+            `    httpupgrade-opts:`,
+            `      path: "${escapeYaml(node.path || '')}"`,
             `      headers:`,
             `        Host: "${escapeYaml(node.host || node.sni || '')}"`
           );
@@ -277,6 +401,7 @@ function renderClash(nodes) {
       }
 
       if (node.type === 'trojan') {
+        const network = node.network || 'tcp';
         const lines = [
           `  - name: "${escapeYaml(node.name)}"`,
           `    type: trojan`,
@@ -294,14 +419,52 @@ function renderClash(nodes) {
           lines.push(`    tls: true`);
         }
 
-        if (node.network) {
-          lines.push(`    network: ${node.network}`);
-        }
+        lines.push(`    network: ${network}`);
 
-        if (node.network === 'ws') {
+        if (network === 'ws') {
           lines.push(
             `    ws-opts:`,
             `      path: "${escapeYaml(node.path || '/')}"`,
+            `      headers:`,
+            `        Host: "${escapeYaml(node.host || node.sni || '')}"`
+          );
+        } else if (network === 'grpc') {
+          lines.push(
+            `    grpc-opts:`,
+            `      grpc-service-name: "${escapeYaml(node.serviceName || node.params?.serviceName || '')}"`
+          );
+        } else if (network === 'http' || network === 'h2') {
+          lines.push(
+            `    http-opts:`,
+            `      path: ["${escapeYaml(node.path || '/')}"]`,
+            `      headers:`,
+            `        Host: ["${escapeYaml(node.host || node.sni || '')}"]`
+          );
+        } else if (network === 'xhttp') {
+          lines.push(
+            `    xhttp-opts:`,
+            `      path: "${escapeYaml(node.path || '')}"`,
+            `      host: "${escapeYaml(node.host || node.sni || '')}"`,
+            `      mode: "${escapeYaml(node.params?.mode || 'auto')}"`
+          );
+          if (node.params?.extra) {
+            try {
+              const extraVal = typeof node.params.extra === 'string'
+                ? JSON.parse(decodeURIComponent(node.params.extra))
+                : node.params.extra;
+              lines.push(
+                `      extra:`,
+                `        mode: "${escapeYaml(extraVal.mode || 'auto')}"`,
+                `        xPaddingBytes: "${escapeYaml(extraVal.xPaddingBytes || '100-1000')}"`
+              );
+            } catch (e) {
+              lines.push(`      extra: "${escapeYaml(String(node.params.extra))}"`);
+            }
+          }
+        } else if (network === 'httpupgrade') {
+          lines.push(
+            `    httpupgrade-opts:`,
+            `      path: "${escapeYaml(node.path || '')}"`,
             `      headers:`,
             `        Host: "${escapeYaml(node.host || node.sni || '')}"`
           );

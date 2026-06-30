@@ -178,6 +178,19 @@ export function expandNodes(baseNodes, endpoints, options = {}) {
         }
       }
 
+      if (clone.params) {
+        if (clone.sni) {
+          clone.params.sni = clone.sni;
+        } else {
+          delete clone.params.sni;
+        }
+        if (clone.hostHeader) {
+          clone.params.host = clone.hostHeader;
+        } else {
+          delete clone.params.host;
+        }
+      }
+
       expanded.push(clone);
     });
   });
@@ -448,7 +461,7 @@ function parseVmessUri(uri) {
     fp: String(data.fp || '').trim(),
     headerType: String(data.type || '').trim(),
     allowInsecure: toBoolean(data.allowInsecure),
-    params: {},
+    params: data || {},
   };
 }
 
@@ -606,9 +619,10 @@ function renderClashProxy(node) {
     lines.push(`    skip-cert-verify: ${node.allowInsecure ? 'true' : 'false'}`);
   }
 
-  lines.push(`    network: ${node.network || 'tcp'}`);
+  const network = node.network || 'tcp';
+  lines.push(`    network: ${network}`);
 
-  if (node.network === 'ws') {
+  if (network === 'ws') {
     lines.push('    ws-opts:');
     lines.push(`      path: ${yamlQuote(node.path || '/')}`);
     if (node.hostHeader) {
@@ -617,17 +631,45 @@ function renderClashProxy(node) {
     }
   }
 
-  if (node.network === 'grpc') {
+  if (network === 'grpc') {
     lines.push('    grpc-opts:');
-    lines.push(`      grpc-service-name: ${yamlQuote(node.serviceName || '')}`);
+    lines.push(`      grpc-service-name: ${yamlQuote(node.serviceName || node.params?.serviceName || '')}`);
   }
 
-  if (node.network === 'http' || node.network === 'h2') {
+  if (network === 'http' || network === 'h2') {
     lines.push('    http-opts:');
     lines.push(`      path: [${yamlQuote(node.path || '/')}]`);
     if (node.hostHeader) {
       lines.push('      headers:');
       lines.push(`        Host: [${yamlQuote(node.hostHeader)}]`);
+    }
+  }
+
+  if (network === 'xhttp') {
+    lines.push('    xhttp-opts:');
+    lines.push(`      path: ${yamlQuote(node.path || '')}`);
+    lines.push(`      host: ${yamlQuote(node.hostHeader || '')}`);
+    lines.push(`      mode: ${yamlQuote(node.params?.mode || 'auto')}`);
+    if (node.params?.extra) {
+      try {
+        const extraVal = typeof node.params.extra === 'string' 
+          ? JSON.parse(decodeURIComponent(node.params.extra)) 
+          : node.params.extra;
+        lines.push('      extra:');
+        lines.push(`        mode: ${yamlQuote(extraVal.mode || 'auto')}`);
+        lines.push(`        xPaddingBytes: ${yamlQuote(extraVal.xPaddingBytes || '100-1000')}`);
+      } catch (e) {
+        lines.push(`      extra: ${yamlQuote(String(node.params.extra))}`);
+      }
+    }
+  }
+
+  if (network === 'httpupgrade') {
+    lines.push('    httpupgrade-opts:');
+    lines.push(`      path: ${yamlQuote(node.path || '')}`);
+    if (node.hostHeader) {
+      lines.push('      headers:');
+      lines.push(`        Host: ${yamlQuote(node.hostHeader)}`);
     }
   }
 
